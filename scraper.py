@@ -3,7 +3,7 @@ import json
 from datetime import datetime
 
 def scrape_store_debug(url, store_name):
-    """Scrapuje stronę i zapisuje HTML do debugowania"""
+    """Debug scraping function"""
     
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
@@ -11,39 +11,39 @@ def scrape_store_debug(url, store_name):
         
         print(f"
 --- DEBUG: {store_name} ---")
-        print(f"Otwieranie: {url}")
+        print(f"Opening: {url}")
         
         try:
             page.goto(url, wait_until="networkidle", timeout=30000)
-            print("Strona zaladowana!")
+            print("Page loaded!")
             
-            # Poczekaj 5 sekund, zeby JS sie zalaodowal
+            # Wait 5 seconds for JS to load
             page.wait_for_timeout(5000)
             
-            # Pobierz caly HTML
+            # Get full HTML
             html = page.content()
             
-            # Zapisz HTML do pliku
+            # Save HTML to file
             filename = f"debug_{store_name.lower()}.html"
             with open(filename, "w", encoding="utf-8") as f:
                 f.write(html)
             
-            print(f"Zapisano HTML do {filename} ({len(html)} znakow)")
+            print(f"Saved HTML to {filename} ({len(html)} chars)")
             
-            # Zrob screenshot
+            # Take screenshot
             page.screenshot(path=f"debug_{store_name.lower()}.png")
-            print(f"Zapisano screenshot do debug_{store_name.lower()}.png")
+            print(f"Saved screenshot to debug_{store_name.lower()}.png")
             
-            # Sprobuj znalezc dowolne elementy z promo w klasie
+            # Try to find any elements with 'promo' in class
             promo_elements = page.query_selector_all("[class*='promo']")
-            print(f"Znaleziono {len(promo_elements)} elementow z promo w klasie")
+            print(f"Found {len(promo_elements)} elements with 'promo' in class")
             
-            # Sprobuj znalezc elementy z book w klasie
+            # Try to find elements with 'book' in class
             book_elements = page.query_selector_all("[class*='book']")
-            print(f"Znaleziono {len(book_elements)} elementow z book w klasie")
+            print(f"Found {len(book_elements)} elements with 'book' in class")
             
         except Exception as e:
-            print(f"Blad: {e}")
+            print(f"Error: {e}")
         
         finally:
             browser.close()
@@ -57,12 +57,12 @@ def main():
     scrape_store_debug("https://onepress.pl/", "Onepress")
     scrape_store_debug("https://ebookpoint.pl/", "Ebookpoint")
     
-    # Zapisz pusty JSON na razie
+    # Save empty JSON for now
     data = {
         "updated": datetime.now().isoformat(),
         "total_promotions": 0,
         "promotions": [],
-        "note": "Debug mode - sprawdz pliki debug_*.html"
+        "note": "Debug mode - check debug_*.html files"
     }
     
     with open("promocje.json", "w", encoding="utf-8") as f:
@@ -70,7 +70,7 @@ def main():
     
     print("
 " + "=" * 60)
-    print("DEBUG ZAKONCZONY - sprawdz pliki debug_*.html i debug_*.png")
+    print("DEBUG COMPLETE - check debug_*.html and debug_*.png files")
     print("=" * 60)
 
 if __name__ == "__main__":
