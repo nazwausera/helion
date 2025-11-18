@@ -20,19 +20,21 @@ jobs:
       with:
         python-version: '3.11'
 
-    - name: Install packages
+    - name: Install dependencies
       run: |
-        pip install requests beautifulsoup4
+        pip install playwright
+
+    - name: Install Playwright browsers
+      run: |
+        playwright install
 
     - name: Run scraper
-      env:
-        SCRAPINGBEE_API_KEY: ${{ secrets.SCRAPINGBEE_API_KEY }}
       run: python scraper.py
 
-    - name: Commit results
+    - name: Commit and push changes
       run: |
         git config user.name "GitHub Action"
         git config user.email "action@github.com"
         git add promocje.json
-        git commit -m "Update promotions" || echo "No changes"
+        git commit -m "Update promotions $(date)" || echo "No changes to commit"
         git push
