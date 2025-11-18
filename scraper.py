@@ -1,95 +1,76 @@
 from playwright.sync_api import sync_playwright
-from bs4 import BeautifulSoup
 import json
 from datetime import datetime
 
-def scrape_store(url, store_name):
-    """Scrapuje promocje ze strony używając Playwright"""
-    results = []
+def scrape_store_debug(url, store_name):
+    """Scrapuje stronę i zapisuje HTML do debugowania"""
     
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         page = browser.new_page()
         
-        print(f"\n--- Scraping {store_name} ---")
+        print(f"
+--- DEBUG: {store_name} ---")
         print(f"Otwieranie: {url}")
         
         try:
             page.goto(url, wait_until="networkidle", timeout=30000)
+            print("Strona załadowana!")
             
-            # Czekamy aż pojawią się elementy promocji
-            print("Czekanie na załadowanie promocji...")
-            page.wait_for_selector("div.promo-book-const", timeout=10000)
+            # Poczekaj 5 sekund, żeby JS się załadował
+            page.wait_for_timeout(5000)
             
-            # Pobieramy HTML
+            # Pobierz cały HTML
             html = page.content()
             
-            # Parsujemy za pomocą BeautifulSoup
-            soup = BeautifulSoup(html, "html.parser")
-            items = soup.find_all("div", class_="promo-book-const")
+            # Zapisz HTML do pliku
+            filename = f"debug_{store_name.lower()}.html"
+            with open(filename, "w", encoding="utf-8") as f:
+                f.write(html)
             
-            print(f"Znaleziono elementów: {len(items)}")
+            print(f"✅ Zapisano HTML do {filename} ({len(html)} znaków)")
             
-            # Ekstrahujemy dane z każdego elementu
-            for i, item in enumerate(items[:3]):  # Bierz max 3 promocje
-                try:
-                    # Szukamy linku i ceny wewnątrz elementu
-                    book_container = item.find("div", class_="book-of-day-container")
-                    
-                    if book_container:
-                        title_elem = book_container.find("a")
-                        price_elem = book_container.find("div", class_="book-of-day-price-info")
-                        
-                        title = title_elem.get_text(strip=True) if title_elem else f"Promocja {i+1}"
-                        price = price_elem.get_text(strip=True) if price_elem else "Cena nieznana"
-                        
-                        promo_type = ["Książka Tygodnia", "Kurs Tygodnia", "Promocja"][i]
-                        
-                        results.append({
-                            "store": store_name,
-                            "type": promo_type,
-                            "title": title,
-                            "price": price,
-                            "url": url
-                        })
-                        
-                        print(f"  [{i+1}] {promo_type}: {title} - {price}")
-                except Exception as e:
-                    print(f"  Błąd przy ekstrakcji elementu {i}: {e}")
+            # Zrób screenshot
+            page.screenshot(path=f"debug_{store_name.lower()}.png")
+            print(f"✅ Zapisano screenshot do debug_{store_name.lower()}.png")
+            
+            # Spróbuj znaleźć dowolne elementy z "promo" w klasie
+            promo_elements = page.query_selector_all("[class*='promo']")
+            print(f"Znaleziono {len(promo_elements)} elementów z 'promo' w klasie")
+            
+            # Spróbuj znaleźć elementy z "book" w klasie
+            book_elements = page.query_selector_all("[class*='book']")
+            print(f"Znaleziono {len(book_elements)} elementów z 'book' w klasie")
             
         except Exception as e:
-            print(f"❌ Błąd przy ścielaniu {store_name}: {e}")
+            print(f"❌ Błąd: {e}")
         
         finally:
             browser.close()
-    
-    return results
 
 def main():
     print("=" * 60)
-    print("SCRAPER PROMOCJI - POCZĄTEK")
+    print("SCRAPER DEBUG MODE")
     print("=" * 60)
     
-    all_promotions = []
+    scrape_store_debug("https://helion.pl/", "Helion")
+    scrape_store_debug("https://onepress.pl/", "Onepress")
+    scrape_store_debug("https://ebookpoint.pl/", "Ebookpoint")
     
-    # Scrapuj każdą stronę
-    all_promotions.extend(scrape_store("https://helion.pl/", "Helion"))
-    all_promotions.extend(scrape_store("https://onepress.pl/", "Onepress"))
-    all_promotions.extend(scrape_store("https://ebookpoint.pl/", "Ebookpoint"))
-    
-    # Przygotuj dane do JSON-a
+    # Zapisz pusty JSON na razie
     data = {
         "updated": datetime.now().isoformat(),
-        "total_promotions": len(all_promotions),
-        "promotions": all_promotions
+        "total_promotions": 0,
+        "promotions": [],
+        "note": "Debug mode - sprawdź pliki debug_*.html"
     }
     
-    # Zapisz do pliku
     with open("promocje.json", "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
     
-    print("\n" + "=" * 60)
-    print(f"✅ SUKCES! Zapisano {len(all_promotions)} promocji do promocje.json")
+    print("
+" + "=" * 60)
+    print("✅ DEBUG ZAKOŃCZONY - sprawdź pliki debug_*.html i debug_*.png")
     print("=" * 60)
 
 if __name__ == "__main__":
