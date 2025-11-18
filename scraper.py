@@ -15,12 +15,12 @@ def scrape_store_debug(url, store_name):
         
         try:
             page.goto(url, wait_until="networkidle", timeout=30000)
-            print("Strona załadowana!")
+            print("Strona zaladowana!")
             
-            # Poczekaj 5 sekund, żeby JS się załadował
+            # Poczekaj 5 sekund, zeby JS sie zalaodowal
             page.wait_for_timeout(5000)
             
-            # Pobierz cały HTML
+            # Pobierz caly HTML
             html = page.content()
             
             # Zapisz HTML do pliku
@@ -28,22 +28,22 @@ def scrape_store_debug(url, store_name):
             with open(filename, "w", encoding="utf-8") as f:
                 f.write(html)
             
-            print(f"✅ Zapisano HTML do {filename} ({len(html)} znaków)")
+            print(f"Zapisano HTML do {filename} ({len(html)} znakow)")
             
-            # Zrób screenshot
+            # Zrob screenshot
             page.screenshot(path=f"debug_{store_name.lower()}.png")
-            print(f"✅ Zapisano screenshot do debug_{store_name.lower()}.png")
+            print(f"Zapisano screenshot do debug_{store_name.lower()}.png")
             
-            # Spróbuj znaleźć dowolne elementy z "promo" w klasie
+            # Sprobuj znalezc dowolne elementy z promo w klasie
             promo_elements = page.query_selector_all("[class*='promo']")
-            print(f"Znaleziono {len(promo_elements)} elementów z 'promo' w klasie")
+            print(f"Znaleziono {len(promo_elements)} elementow z promo w klasie")
             
-            # Spróbuj znaleźć elementy z "book" w klasie
+            # Sprobuj znalezc elementy z book w klasie
             book_elements = page.query_selector_all("[class*='book']")
-            print(f"Znaleziono {len(book_elements)} elementów z 'book' w klasie")
+            print(f"Znaleziono {len(book_elements)} elementow z book w klasie")
             
         except Exception as e:
-            print(f"❌ Błąd: {e}")
+            print(f"Blad: {e}")
         
         finally:
             browser.close()
@@ -62,7 +62,7 @@ def main():
         "updated": datetime.now().isoformat(),
         "total_promotions": 0,
         "promotions": [],
-        "note": "Debug mode - sprawdź pliki debug_*.html"
+        "note": "Debug mode - sprawdz pliki debug_*.html"
     }
     
     with open("promocje.json", "w", encoding="utf-8") as f:
@@ -70,7 +70,7 @@ def main():
     
     print("
 " + "=" * 60)
-    print("✅ DEBUG ZAKOŃCZONY - sprawdź pliki debug_*.html i debug_*.png")
+    print("DEBUG ZAKONCZONY - sprawdz pliki debug_*.html i debug_*.png")
     print("=" * 60)
 
 if __name__ == "__main__":
