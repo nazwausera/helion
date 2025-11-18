@@ -1,107 +1,96 @@
-import requests
-import json
-import os
+from playwright.sync_api import sync_playwright
 from bs4 import BeautifulSoup
+import json
 from datetime import datetime
 
-API_KEY = os.getenv("SCRAPINGBEE_API_KEY")
-
-def fetch_with_scrapingbee(url):
-    api_url = (
-        f"https://app.scrapingbee.com/api/v1/"
-        f"?api_key={API_KEY}"
-        f"&url={url}"
-        f"&render_js=true"
-        f"&wait=3000"
-        f"&block_resources=false"
-    )
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 "
-        "Safari/537.36"
-    }
-    response = requests.get(api_url, headers=headers, timeout=30)
-    response.raise_for_status()
-    print(f"\nSCRAPINGBEE_API_KEY: {API_KEY}\n")
-    print(f"\n=== HTML zawartość {url} (pierwsze 3000 znaków) ===\n")
-    print(response.text[:3000])
-    print(f"\n=== KONIEC HTML {url} ===\n")
-    return response.text
-
-def get_promotions_helion():
-    html = fetch_with_scrapingbee("https://helion.pl/")
-    soup = BeautifulSoup(html, "html.parser")
+def scrape_store(url, store_name):
+    """Scrapuje promocje ze strony używając Playwright"""
     results = []
-    items = soup.find_all("div", class_="promo-book-const")
-    print("Znaleziono kontenerów Helion:", len(items))
-    for i, item in enumerate(items[:2]):
-        book_info = item.find("div", class_="book-of-day-container")
-        title_elem = book_info.find("a") if book_info else None
-        price_elem = book_info.find("div", class_="book-of-day-price-info") if book_info else None
-        title = title_elem.get_text(strip=True) if title_elem else "Brak tytułu"
-        price = price_elem.get_text(strip=True) if price_elem else "Brak ceny"
-        promo_type = "Książka Tygodnia" if i == 0 else "Kurs Tygodnia"
-        results.append({
-            "store": "Helion",
-            "type": promo_type,
-            "title": title,
-            "price": price,
-            "url": "https://helion.pl/"
-        })
-    return results
-
-def get_promotions_onepress():
-    html = fetch_with_scrapingbee("https://onepress.pl/")
-    soup = BeautifulSoup(html, "html.parser")
-    results = []
-    items = soup.find_all("div", class_="promo-book-const")
-    print("Znaleziono kontenerów Onepress:", len(items))
-    for item in items[:1]:
-        book_info = item.find("div", class_="book-of-day-container")
-        title_elem = book_info.find("a") if book_info else None
-        price_elem = book_info.find("div", class_="book-of-day-price-info") if book_info else None
-        title = title_elem.get_text(strip=True) if title_elem else "Brak tytułu"
-        price = price_elem.get_text(strip=True) if price_elem else "Brak ceny"
-        results.append({
-            "store": "Onepress",
-            "type": "Książka Tygodnia",
-            "title": title,
-            "price": price,
-            "url": "https://onepress.pl/"
-        })
-    return results
-
-def get_promotions_ebookpoint():
-    html = fetch_with_scrapingbee("https://ebookpoint.pl/")
-    soup = BeautifulSoup(html, "html.parser")
-    results = []
-    items = soup.find_all("div", class_="promo-book-const")
-    print("Znaleziono kontenerów Ebookpoint:", len(items))
-    types = ["Książka Dnia", "Audiobook Dnia", "Kurs Tygodnia"]
-    for i, item in enumerate(items[:3]):
-        book_info = item.find("div", class_="book-of-day-container")
-        title_elem = book_info.find("a") if book_info else None
-        price_elem = book_info.find("div", class_="book-of-day-price-info") if book_info else None
-        title = title_elem.get_text(strip=True) if title_elem else "Brak tytułu"
-        price = price_elem.get_text(strip=True) if price_elem else "Brak ceny"
-        results.append({
-            "store": "Ebookpoint",
-            "type": types[i] if i < len(types) else "Promocja",
-            "title": title,
-            "price": price,
-            "url": "https://ebookpoint.pl/"
-        })
+    
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        page = browser.new_page()
+        
+        print(f"\n--- Scraping {store_name} ---")
+        print(f"Otwieranie: {url}")
+        
+        try:
+            page.goto(url, wait_until="networkidle", timeout=30000)
+            
+            # Czekamy aż pojawią się elementy promocji
+            print("Czekanie na załadowanie promocji...")
+            page.wait_for_selector("div.promo-book-const", timeout=10000)
+            
+            # Pobieramy HTML
+            html = page.content()
+            
+            # Parsujemy za pomocą BeautifulSoup
+            soup = BeautifulSoup(html, "html.parser")
+            items = soup.find_all("div", class_="promo-book-const")
+            
+            print(f"Znaleziono elementów: {len(items)}")
+            
+            # Ekstrahujemy dane z każdego elementu
+            for i, item in enumerate(items[:3]):  # Bierz max 3 promocje
+                try:
+                    # Szukamy linku i ceny wewnątrz elementu
+                    book_container = item.find("div", class_="book-of-day-container")
+                    
+                    if book_container:
+                        title_elem = book_container.find("a")
+                        price_elem = book_container.find("div", class_="book-of-day-price-info")
+                        
+                        title = title_elem.get_text(strip=True) if title_elem else f"Promocja {i+1}"
+                        price = price_elem.get_text(strip=True) if price_elem else "Cena nieznana"
+                        
+                        promo_type = ["Książka Tygodnia", "Kurs Tygodnia", "Promocja"][i]
+                        
+                        results.append({
+                            "store": store_name,
+                            "type": promo_type,
+                            "title": title,
+                            "price": price,
+                            "url": url
+                        })
+                        
+                        print(f"  [{i+1}] {promo_type}: {title} - {price}")
+                except Exception as e:
+                    print(f"  Błąd przy ekstrakcji elementu {i}: {e}")
+            
+        except Exception as e:
+            print(f"❌ Błąd przy ścielaniu {store_name}: {e}")
+        
+        finally:
+            browser.close()
+    
     return results
 
 def main():
-    promotions = []
-    promotions.extend(get_promotions_helion())
-    promotions.extend(get_promotions_onepress())
-    promotions.extend(get_promotions_ebookpoint())
-    out = {"updated": datetime.now().isoformat(), "promotions": promotions}
+    print("=" * 60)
+    print("SCRAPER PROMOCJI - POCZĄTEK")
+    print("=" * 60)
+    
+    all_promotions = []
+    
+    # Scrapuj każdą stronę
+    all_promotions.extend(scrape_store("https://helion.pl/", "Helion"))
+    all_promotions.extend(scrape_store("https://onepress.pl/", "Onepress"))
+    all_promotions.extend(scrape_store("https://ebookpoint.pl/", "Ebookpoint"))
+    
+    # Przygotuj dane do JSON-a
+    data = {
+        "updated": datetime.now().isoformat(),
+        "total_promotions": len(all_promotions),
+        "promotions": all_promotions
+    }
+    
+    # Zapisz do pliku
     with open("promocje.json", "w", encoding="utf-8") as f:
-        json.dump(out, f, ensure_ascii=False, indent=2)
-    print(f"\nZapisano {len(promotions)} promocji do promocje.json\n")
+        json.dump(data, f, ensure_ascii=False, indent=2)
+    
+    print("\n" + "=" * 60)
+    print(f"✅ SUKCES! Zapisano {len(all_promotions)} promocji do promocje.json")
+    print("=" * 60)
 
 if __name__ == "__main__":
     main()
