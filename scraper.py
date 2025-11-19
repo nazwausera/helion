@@ -4,57 +4,51 @@ import json
 import re
 from datetime import datetime
 
-def extract_price(text):
-    match = re.search(r'(\d+[,.]\d{2})\s*zl', text)
-    if match:
-        return match.group(1)
-    return None
-
 def extract_promotions(html, store_name):
     soup = BeautifulSoup(html, 'html.parser')
     promotions = []
     
     try:
-        links = soup.find_all('a', limit=10)
+        full_text = soup.get_text()
+        lines = full_text.split('\n')
         
-        for link in links:
-            text = link.get_text(strip=True)
+        # Szukaj każdej linii zawierającej cenę w formacie XXX.XX zł lub XXX,XX zł
+        price_pattern = r'(\d+[,.]\d{2})\s*zl'
+        
+        found_prices = []
+        for i, line in enumerate(lines):
+            # Szukaj ceny bieżącej (bez ~ znaków)
+            if re.search(r'^\s*\d+[,.]\d{2}\s*zl\s*$', line):
+                # To jest linia TYLKO z ceną
+                found_prices.append((i, line.strip()))
+        
+        # Dla każdej znalezionej ceny - pobierz tytuł
+        for idx, (line_num, price) in enumerate(found_prices[:5]):  # Max 5 promocji
+            # Szukaj tytułu kilka linii wyżej
+            title = ''
+            for j in range(max(0, line_num-20), line_num):
+                line_content = lines[j].strip()
+                # Szukaj linii, która wygląda na tytuł (nie zawiera symboli, ma sensowną długość)
+                if (len(line_content) > 10 and 
+                    len(line_content) < 150 and
+                    line_content not in ['- Druk', '- PDF + ePub + Mobi'] and
+                    'zl' not in line_content and
+                    'zl' not in line_content and
+                    '~~' not in line_content):
+                    title = line_content
             
-            if len(text) > 5 and text not in ['', 'o nas', 'kontakt', 'pomoc']:
-                parent = link.parent
-                if parent:
-                    parent_text = parent.get_text()
-                    price = extract_price(parent_text)
-                    
-                    if price:
-                        promotions.append({
-                            'store': store_name,
-                            'title': text[:100],
-                            'price': price,
-                            'url': link.get('href', '')
-                        })
+            if title:
+                # Wyczyść cenę
+                clean_price = price.replace(',', '.').strip()
+                
+                promotions.append({
+                    'store': store_name,
+                    'title': title[:100],
+                    'price': clean_price,
+                    'url': ''
+                })
         
-        if not promotions:
-            all_text = soup.get_text()
-            lines = all_text.split('\n')
-            
-            for i, line in enumerate(lines[:20]):
-                if extract_price(line):
-                    title_line = ''
-                    for j in range(max(0, i-5), i):
-                        if len(lines[j].strip()) > 5:
-                            title_line = lines[j].strip()
-                            break
-                    
-                    if title_line:
-                        promotions.append({
-                            'store': store_name,
-                            'title': title_line[:100],
-                            'price': extract_price(line),
-                            'url': ''
-                        })
-        
-        return promotions[:3]
+        return promotions
         
     except Exception as e:
         print('Error: ' + str(e))
@@ -77,6 +71,8 @@ def scrape_store(url, store_name):
             html = page.content()
             promos = extract_promotions(html, store_name)
             print('Found ' + str(len(promos)) + ' promotions')
+            for promo in promos:
+                print('  - ' + promo['title'][:50] + ': ' + promo['price'])
             promotions = promos
             
         except Exception as e:
