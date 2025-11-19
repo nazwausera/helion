@@ -7,8 +7,7 @@ def scrape_store_debug(url, store_name):
         browser = p.chromium.launch(headless=True)
         page = browser.new_page()
         
-        print("
---- DEBUG: " + store_name + " ---")
+        print("\n--- DEBUG: " + store_name + " ---")
         print("Opening: " + url)
         
         try:
@@ -59,8 +58,7 @@ def main():
     with open("promocje.json", "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
     
-    print("
-" + "=" * 60)
+    print("\n" + "=" * 60)
     print("DEBUG COMPLETE")
     print("=" * 60)
 
